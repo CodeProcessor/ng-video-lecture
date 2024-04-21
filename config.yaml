@@ -1,5 +1,5 @@
 
-default:
+default: &default
   BLOCK_SIZE: 8
   BATCH_SIZE: 32
   LEARNING_RATE: 1e-3
@@ -7,3 +7,8 @@ default:
   EVAL_INTERVAL: 100
   EVAL_ITERS: 50
   VOCAB_SIZE: 10
+  DEVICE: 'cpu'
+
+bi_gram_v2:
+    <<: *default
+    N_EMBEDDINGS: 32

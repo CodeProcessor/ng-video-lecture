@@ -3,11 +3,11 @@ from pathlib import Path
 import torch
 from loguru import logger
 
-from bigram_model_v1 import BigramLanguageModelV1
+from bigram_model_v2 import BigramLanguageModel
 from load_config import ConfigClass
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-MODEL_NAME = 'model-v3.pt'
+MODEL_NAME = 'model-a2v2.pt'
 
 config = ConfigClass()
 
@@ -47,7 +47,7 @@ def get_batch(batch_size, split='train'):
     random_pos = torch.randint(0, len(selected_data) - config.config.BLOCK_SIZE, (batch_size,))
     x = torch.stack([selected_data[rp:rp + config.config.BLOCK_SIZE] for rp in random_pos])
     y = torch.stack([selected_data[rp + 1:rp + config.config.BLOCK_SIZE + 1] for rp in random_pos])
-    return x.to(DEVICE), y.to(DEVICE)
+    return x.to(DEVICE), y.to(DEVICE)  # (B, T)
 
 
 # logger.info(get_batch(16))
@@ -71,7 +71,8 @@ def evaluate(trained_model):
 if __name__ == '__main__':
 
     LOAD_MODEL = True
-    model = BigramLanguageModelV1().to(DEVICE)
+    LEARNING_RATE = float(config.config.LEARNING_RATE)
+    model = BigramLanguageModel().to(DEVICE)
 
     if LOAD_MODEL and Path(MODEL_NAME).is_file():
         state = torch.load(MODEL_NAME)
@@ -79,7 +80,7 @@ if __name__ == '__main__':
         del state['model_state']
         logger.info(state)
     else:
-        optimizer = torch.optim.AdamW(model.parameters(), lr=config.config.LEARNING_RATE)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
         for iteration in range(config.config.MAX_ITERATIONS):
             # sample a batch of data

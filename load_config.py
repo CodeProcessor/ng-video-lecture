@@ -1,13 +1,25 @@
+import os
+
 import yaml
 
 from dotdict import dotdict
 
 
-class ConfigClass:
+class Singleton:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Singleton, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
+
+
+class ConfigClass(Singleton):
     config = None
 
     def __init__(self):
-        ConfigClass.config = self.load_config()
+        """create singleton instance of config"""
+        ConfigClass.config = self.load_config(os.getenv('ENV', 'default'))
 
     def set_config(self, key, value):
         """Set configurations"""

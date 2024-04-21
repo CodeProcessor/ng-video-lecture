@@ -2,15 +2,20 @@ import torch
 from torch import nn as nn
 from torch.nn import functional as F
 
-from load_config import ConfigClass 
+from load_config import ConfigClass
+from head import Head
 
 config = ConfigClass()
+
 
 class BigramLanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
         print(f"Model vocab size: {config.config.VOCAB_SIZE}")
-        self.token_embeddings = nn.Embedding(config.config.VOCAB_SIZE, config.config.VOCAB_SIZE)
+        self.token_embeddings = nn.Embedding(config.config.VOCAB_SIZE, config.config.N_EMBEDDINGS)
+        self.positional_embeddings = nn.Embedding(config.config.BLOCK_SIZE, config.config.N_EMBEDDINGS)
+        self.lm_head = nn.Linear(config.config.N_EMBEDDINGS, config.config.VOCAB_SIZE)
+        self.sa_head = Head(config.config.N_EMBEDDINGS)
 
     def forward(self, idx, targets=None):
         """
@@ -19,7 +24,13 @@ class BigramLanguageModel(nn.Module):
         # logger.info(f"Logits shape: {logits.shape}")
         """
         # idx and targets both are (B, T) shape
-        logits = self.token_embeddings(idx)  # (B, T, C[vocab_size])
+        B, T = idx.shape
+        token_embed = self.token_embeddings(idx)  # (B, T, C[n_embeddings])
+        pos_embed = self.positional_embeddings(torch.arange(T).to(idx.device))  # (T, C[n_embeddings])
+        x = token_embed + pos_embed  # Broadcast addition (B,T,C[n_embeddings])
+        x = self.sa_head(x)  # (B,T,C[n_embeddings])
+        logits = self.lm_head(x)
+
         B, T, C = logits.shape
 
         if targets is not None:
@@ -34,7 +45,9 @@ class BigramLanguageModel(nn.Module):
     def generate(self, idx, max_tokens=100):
         # idx is ( B, T)
         for _ in range(max_tokens):
-            logits, _ = self(idx)  # (B,T,C)
+            # Crop idx to the last block_size tokens
+            idx_cond = idx[:, -config.config.BLOCK_SIZE:]
+            logits, _ = self(idx_cond)  # (B,T,C)
             # focus only the last time step
             last_logit = logits[:, -1, :]  # (B, C)
             # apply softmax to get probabilities
